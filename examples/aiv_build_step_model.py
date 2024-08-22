@@ -2,6 +2,7 @@ from aivmodel.handler import Handler
 from aivmodel import set_handler
 import win32api
 import win32con
+import traceback
 
 from sourcehold.aivs import AIV
 
@@ -13,7 +14,7 @@ import pathlib
 class AIVInterface(AIV):
   def __init__(self, path, iteration = None):
     super().__init__()
-    self.iteration = 1
+    self.iteration = 0
     if iteration is not None:
       self.iteration = iteration
     self.path = path
@@ -36,7 +37,7 @@ class AIVInterface(AIV):
   def get_steps(self):
     matrix = numpy.frombuffer(self.directory[2008].get_data(), dtype='uint32')
     matrix.shape = (100, 100)
-    return matrix
+    return matrix.copy() # Otherwise it is read only...
   def _distance(self, stepsCount, learning_rate, learning_rate_unit):
     if learning_rate_unit == "relative":
       learning_rate = (learning_rate * stepsCount) // 100
@@ -70,7 +71,7 @@ class AIVInterface(AIV):
     step2x, step2y = numpy.where(steps_matrix == step2)
     steps_matrix[step1x, step1y] = step2
     steps_matrix[step2x, step2y] = step1
-    self.directory[2008].write_data(steps_matrix.tobytes())
+    self.directory[2008].set_data(steps_matrix.tobytes())
   def relocate_step(self, learning_rate = 10, learning_rate_unit = "percentage"):
     """
       Moves a step at a new location
@@ -93,7 +94,7 @@ class AIVInterface(AIV):
     else:
       raise Exception("reached limit, steps impossible")
     raise NotImplementedError("more difficult than I thought")
-    self.directory[2008].write_data(steps_matrix.tobytes())
+    self.directory[2008].set_data(steps_matrix.tobytes())
   def next_iteration(self):
     self.iteration += 1
     self.swap_steps()
@@ -117,39 +118,47 @@ class AIVBuildStepSolver(Handler):
     super().initialize()
 
   def onLordKilled(self, playerID):
-    win = playerID == 1 # Assuming 1 vs 1
-    iteration = saladin.iteration
-    if iteration not in self.wins:
-      self.losses[iteration] = 0
-    if iteration not in self.wins:
-      self.wins[iteration] = 0
+    try:
+      if playerID == 0:
+        return win32api.MessageBox(None, f"Test!", "Test", win32con.MB_OKCANCEL)
+      win = playerID == 1 # Assuming 1 vs 1
+      iteration = saladin.iteration
+      if iteration not in self.losses:
+        self.losses[iteration] = 0
+      if iteration not in self.wins:
+        self.wins[iteration] = 0
 
-    if win:
-      self.wins[iteration] += 1
-    if not win:
-      self.losses[iteration] += 1
-    
-    if iteration < 1:
-      saladin.next_iteration()
-      return True
-    
-    previous = iteration - 1
-    if (self.wins[previous] - self.losses[previous]) > (self.wins[iteration] - self.losses[iteration]):
-      if self.retries == 0:
-        if win32api.MessageBox(None, f"Previous iteration!", "Choice:", win32con.MB_OKCANCEL):
-          saladin.previous_iteration()
-          self.retries = 3 # For next time we lose
-        else:
-          self.retries = 1
-      else:
-        self.retries -= 1 # Keep the current aiv once more
-    else:
-      # Keep developing this aiv
-      if win32api.MessageBox(None, f"Next iteration!", "Choice:", win32con.MB_OKCANCEL):
+      if win:
+        self.wins[iteration] += 1
+      if not win:
+        self.losses[iteration] += 1
+      
+      if iteration < 1:
+        win32api.MessageBox(None, f"Next iteration!", "Choice:", win32con.MB_OKCANCEL)
         saladin.next_iteration()
+        return True
+      
+      previous = iteration - 1
+      if (self.wins[previous] - self.losses[previous]) > (self.wins[iteration] - self.losses[iteration]):
+        if self.retries == 0:
+          if win32api.MessageBox(None, f"Previous iteration!", "Choice:", win32con.MB_OKCANCEL):
+            saladin.previous_iteration()
+            self.retries = 3 # For next time we lose
+          else:
+            self.retries = 1
+        else:
+          self.retries -= 1 # Keep the current aiv once more
+      else:
+        # Keep developing this aiv
+        if win32api.MessageBox(None, f"Next iteration!", "Choice:", win32con.MB_OKCANCEL):
+          saladin.next_iteration()
 
 
-    # Restart the game!
-    return True
+      # Restart the game!
+      return True
+    except Exception as e:
+      win32api.MessageBox(None, f"{e}", "Error in build step model:", win32con.MB_OK)
+      win32api.MessageBox(None, f"{''.join(traceback.TracebackException.from_exception(e).format())}", "Error in build step model:", win32con.MB_OK)
+      return False
   
 set_handler(AIVBuildStepSolver())

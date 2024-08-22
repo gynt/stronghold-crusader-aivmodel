@@ -12,4 +12,4 @@ def registerCallback(name, func, argCount = None):
   if argCount == None:
     argCount = len(func.argtypes)
   if _LUA_REGISTER_CALLBACK != None:
-    _LUA_REGISTER_CALLBACK(name.encode('ascii'), pointerOfFunction(func), len(func.argtypes))
+    _LUA_REGISTER_CALLBACK(name.encode('ascii'), pointerOfFunction(func), argCount)
