@@ -3,7 +3,8 @@ import ctypes.wintypes
 # import cyminhook
 import win32api
 import win32con
-import time
+
+from lua import registerCallback
 
 global process
 
@@ -29,12 +30,12 @@ def onLordKilled(playerID):
   answer = win32api.MessageBox(None, f"Player #{playerID} died.\nRestart the game?", "A lord died!", win32con.MB_OKCANCEL)
   return True if answer == 1 else 0
 
-def pointerOfFunction(func):
-  return ctypes.c_ulong.from_address(ctypes.addressof(func)).value
-
-addr_onLordKilled = pointerOfFunction(onLordKilled)
 
 def set_handler(handler):
   handlers.clear()
   handlers.append(handler)
 
+try:
+  registerCallback("onLordKilled", onLordKilled, 1)
+except Exception as e:
+  win32api.MessageBox(None, f"{e}", "Error during handler initialization", win32con.MB_OK)

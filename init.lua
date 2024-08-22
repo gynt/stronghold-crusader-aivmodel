@@ -1,5 +1,20 @@
-local callback_address_location = 0x004865fb -- code cave
-local callback = nil
+
+-- registerPythonFunction(name, address)
+local registerCallbackLocation = core.allocateCode({0x90, 0x90, 0x90, 0x90, 0x90, 0xC2, 0x0C, 0x00}) -- stdcall three arguments
+local originalRegisterCallback -- useless
+
+local pythonCallbacks = {}
+local pythonCallbackData = {}
+local function registerCallback(name, address, argCount)
+  log(VERBOSE, string.format("Registering python callback: %s, %X, %s", name, address, argCount))
+  pythonCallbacks[name] = core.exposeCode(address, argCount, 2) -- everything is stdcall, or WINFUNCTYPE
+  pythonCallbackData[name] = {address = address, argCount = argCount, name = name}
+end
+local function rawRegisterCallback(ptrName, address, argCount)
+  return registerCallback(core.readString(ptrName), address, argCount)
+end
+
+originalRegisterCallback = core.hookCode(rawRegisterCallback, registerCallbackLocation, 3, 2, 5)
 
 local _restart = core.exposeCode(0x00494950, 1, 0)
 local restart = function()
@@ -70,6 +85,16 @@ local function storeCallbackAddresses()
   return addr_onLordKilled
 end
 
+local function setLuaRegisterCallbackAddress() 
+  local py_PyLong_FromLong = core.exposeCode(ucp.internal.getProcAddress(pythonDLL, "PyLong_FromLong"), 1, 0)
+  local py_long = py_PyLong_FromLong(registerCallbackLocation)
+  local py_AddModule = core.exposeCode(ucp.internal.getProcAddress(pythonDLL, "PyImport_AddModule"), 1, 0)
+  local py_main = py_AddModule(ucp.internal.registerString("__main__"))
+  if py_main == 0 then log(ERROR, "__main__ == NULL") end
+  local py_SetAttrString = core.exposeCode(ucp.internal.getProcAddress(pythonDLL, "PyObject_SetAttrString"), 3, 0)
+  return py_SetAttrString(py_main, ucp.internal.registerString("_LUA_REGISTER_CALLBACK_ADDRESS"), py_long)
+end
+
 return {
   enable = function(self, config)
 
@@ -78,21 +103,35 @@ return {
     log(VERBOSE, "initialize python: " .. (config.pythonDLLPath or ""))
     log(VERBOSE, initializePython(config.pythonDLLPath))
 
+    --log(VERBOSE, "set _LUA_REGISTER_CALLBACK_ADDRESS")
+    --log(VERBOSE, setLuaRegisterCallbackAddress())
+
     local aivmodelBase = ucp.internal.resolveAliasedPath("ucp/modules/ucp-aivmodel/")
    -- Monkey patch
     log(VERBOSE, "import aivmodel")
     log(VERBOSE, executePythonString([[
 import sys
-
-# Insert a place to find modules from
-sys.path.insert(0, "]] .. aivmodelBase .. [[")
+import win32api, win32con
+from types import ModuleType
 
 # import main aivmodel so we can catch any imports here already
-import aivmodel
+try:
+  # Insert a place to find modules from
+  sys.path.insert(0, "]] .. aivmodelBase .. [[")
+  
+  _luabuiltins = ModuleType("luabuiltins")
+  sys.modules[_luabuiltins.__name__] = _luabuiltins
+  _luabuiltins.LUA_REGISTER_CALLBACK_ADDRESS = ]] .. tostring(registerCallbackLocation) .. [[
+  
+  import luabuiltins
+  import lua
+  import aivmodel
+except Exception as e:
+  win32api.MessageBox(None, f"{e}", "Error during aivmodel initialization", win32con.MB_OK)
     ]]))
 
-    log(VERBOSE, "read aivmodel callback addresses")
-    log(VERBOSE, string.format("%X", storeCallbackAddresses()))
+    -- log(VERBOSE, "read aivmodel callback addresses")
+    -- log(VERBOSE, string.format("%X", storeCallbackAddresses()))
 
     log(VERBOSE, "execute python file: " .. (config.pythonFilePath or ""))
     log(VERBOSE, executePythonFile(config.pythonFilePath))
@@ -103,10 +142,10 @@ import aivmodel
 
       log(INFO, string.format("aivmodel: a lord died: #%s", playerID))
 
-      if onLordKilled ~= nil then
+      if pythonCallbacks['onLordKilled'] ~= nil then
         log(INFO, string.format("aivmodel: calling python callback onLordKilled"))
 
-        local ret = onLordKilled(playerID)
+        local ret = pythonCallbacks['onLordKilled'](playerID)
         log(INFO, string.format("aivmodel: callback returned: %s", ret))
         if ret == 1 or ret == true then
           log(INFO, "aivmodel: restarting game")
