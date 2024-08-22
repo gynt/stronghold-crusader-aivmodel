@@ -9,24 +9,15 @@ options:
   category: [AIV Model]
   children:
 
-  - url: ucp-aivmodel.enabled
-    header: 'Quick Disable AIV Model'
-    text: 'Enable the aiv improvement script'
+  - url: python-interface.enabled
+    header: 'Python interface'
+    text: 'Enable the python interface'
     hasHeader: true
     display: Switch
     contents:
       type: boolean
       value: true
-  - url: ucp-aivmodel.folder
-    header: "Select folder"
-    text: "Select folder from which aiv are updated, which should correspond to the directory the game loads them from."
-    display: FileInput
-    contents:
-      generalizeExtensionPaths: true
-      filter: folders
-      type: string
-      value: ""
-  - url: ucp-aivmodel.pythonDLLPath
+  - url: python-interface.pythonDLLPath
     header: "Select python dll"
     text: "Select python dll"
     display: FileInput
@@ -36,13 +27,12 @@ options:
       filter: files
       type: string
       value: ""
-  - url: ucp-aivmodel.pythonFilePath
+  - url: python-interface.pythonFilePath
     header: "Select python file to execute"
     text: "Select python file to execute"
     display: FileInput
-    enabled: false
     contents:
-      generalizeExtensionPaths: false
+      generalizeExtensionPaths: true
       filter: files
       type: string
       value: ""

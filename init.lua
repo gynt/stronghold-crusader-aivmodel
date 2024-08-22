@@ -26,8 +26,6 @@ local ptrCurrentUnitID = 0x00ee0fc8
 
 local pythonDLL
 
-local onLordKilled
-
 local function initializePython(dllPath)
   local dllPath = dllPath
   if dllPath == nil or dllPath:len() == 0 then
@@ -53,16 +51,25 @@ local function executePythonString(s)
 end
 
 local function executePythonFile(filePath)
+  local filePath = filePath
   if filePath == nil or filePath:len() == 0 then
     log(WARNING, "No python file set")
     return
+  else 
+    filePath = ucp.internal.resolveAliasedPath(filePath)
+    log(VERBOSE, "executePythonFile: " .. filePath)
   end
 
   local runSimpleFileAddr = ucp.internal.getProcAddress(pythonDLL, "PyRun_SimpleFile")
   local runSimpleFile = core.exposeCode(runSimpleFileAddr, 2, 0)
-  local filePointer = io.openFilePointer(filePath, 'rb')
-  local filePathString = ucp.internal.registerString(filePath:match("([^\\/]*)[.]py$") or filePath)
+  local filePointer, err = io.openFilePointer(filePath, 'rb')
+  print(filePointer, err)
+  if filePointer == nil then
+    error(err)
+  end
+  local filePathString = ucp.internal.registerString(filePath:match("([^\\/]*[.]py)$") or filePath)
 
+  log(VERBOSE, string.format("runSimpleFile (%s): %s, %s", core.readString(filePathString), filePointer, filePathString))
   return runSimpleFile(filePointer, filePathString)
 end
 
@@ -78,7 +85,7 @@ return {
     --log(VERBOSE, "set _LUA_REGISTER_CALLBACK_ADDRESS")
     --log(VERBOSE, setLuaRegisterCallbackAddress())
 
-    local aivmodelBase = ucp.internal.resolveAliasedPath("ucp/modules/ucp-aivmodel/")
+    local aivmodelBase = ucp.internal.resolveAliasedPath("ucp/modules/python-interface/")
    -- Monkey patch
     log(VERBOSE, "import aivmodel")
     log(VERBOSE, executePythonString([[
@@ -105,8 +112,19 @@ except Exception as e:
     -- log(VERBOSE, "read aivmodel callback addresses")
     -- log(VERBOSE, string.format("%X", storeCallbackAddresses()))
 
-    log(VERBOSE, "execute python file: " .. (config.pythonFilePath or ""))
-    log(VERBOSE, executePythonFile(config.pythonFilePath))
+    --log(VERBOSE, executePythonFile(config.aivmodel.pythonFilePath))
+    if config.pythonFilePath then
+      log(VERBOSE, "execute python file: " .. config.pythonFilePath)      
+      log(VERBOSE, executePythonString([[
+import runpy
+
+try:
+  runpy.run_path(']] .. ucp.internal.resolveAliasedPath(config.pythonFilePath) .. [[')
+except Exception as e:
+  import win32api, win32con
+  win32api.MessageBox(None, f"{e}", "Error during aivmodel initialization", win32con.MB_OK)
+    ]]))
+    end
 
     core.detourCode(function(registers)
       local unitID = core.readInteger(ptrCurrentUnitID)
