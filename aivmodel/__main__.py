@@ -3,6 +3,24 @@ import os
 
 from pymem import Pymem
 
+import argparse
+import pathlib
+
+arg_parser = argparse.ArgumentParser()
+arg_parser.add_argument('handler')
+arg_parser.add_argument('-v', '--verbose', action='store_true')
+args = arg_parser.parse_args()
+
+path = pathlib.Path(args.handler).absolute()
+if path.is_dir():
+    raise NotImplementedError()
+
+sys_path_append = str(path.parent)
+main_file = str(path.stem)
+
+if args.verbose:
+    print(f"handler: file: {main_file} folder: {sys_path_append}")
+
 kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
 
 
@@ -59,24 +77,53 @@ def create_suspended_process():
     return processInformation.dwProcessId
 
 
-process_id = create_suspended_process()
-
 from pymem import Pymem
 import os
-process = Pymem(process_id)
+if args.verbose:
+    print("attaching to process")
+
+try:
+  process = Pymem("Stronghold Crusader")
+  process_id = process.process_id
+except:
+  process_id = create_suspended_process()
+  process = Pymem(process_id)
+
+if args.verbose:
+    print("injecting python interpreter")
 process.inject_python_interpreter()
 filepath = os.path.abspath('.')
 filepath = filepath.replace("\\", "\\\\")
 shellcode = """
 
+import win32api, win32con
+
+win32api.MessageBox(None, f"Hello!", "Test", win32con.MB_OKCANCEL)
+
+log = open('aivmodel.log', 'w')
+
 import sys
 sys.path.insert(0, "{0}")
+sys.path.insert(0, "{1}")
 
 import aivmodel
-aivmodel.main({1})
 
+# To register a handler
+from {2} import HANDLER
+print("setting handler: {{HANDLER}}")
+# aivmodel.set_handler(HANDLER)
 
+# Never returns
+print("running main", file = log)
+try:
+  aivmodel.main({3}, HANDLER)
+except Exception as e:
+  print(f"error: {{e}}", file = log)
+print("exiting...", file = log)
 
-""".format(filepath, process_id)
+""".format(filepath, sys_path_append, main_file, process_id)
+if args.verbose:
+    print("injecting python shellcode")
 process.inject_python_shellcode(shellcode)
-
+if args.verbose:
+    print("exiting")

@@ -1,0 +1,48 @@
+specification-version: 1.0.0
+meta:
+  version: 1.0.0
+options:
+- display: GroupBox
+  header: 'AIV Model'
+  text: 'Callbacks to Python are used'
+  hasHeader: true
+  category: [AIV Model]
+  children:
+
+  - url: ucp-aivmodel.enabled
+    header: 'Quick Disable AIV Model'
+    text: 'Enable the aiv improvement script'
+    hasHeader: true
+    display: Switch
+    contents:
+      type: boolean
+      value: true
+  - url: ucp-aivmodel.folder
+    header: "Select folder"
+    text: "Select folder from which aiv are updated, which should correspond to the directory the game loads them from."
+    display: FileInput
+    contents:
+      generalizeExtensionPaths: true
+      filter: folders
+      type: string
+      value: ""
+  - url: ucp-aivmodel.pythonDLLPath
+    header: "Select python dll"
+    text: "Select python dll"
+    display: FileInput
+    enabled: false
+    contents:
+      generalizeExtensionPaths: false
+      filter: files
+      type: string
+      value: ""
+  - url: ucp-aivmodel.pythonFilePath
+    header: "Select python file to execute"
+    text: "Select python file to execute"
+    display: FileInput
+    enabled: false
+    contents:
+      generalizeExtensionPaths: false
+      filter: files
+      type: string
+      value: ""

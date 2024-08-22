@@ -9,9 +9,43 @@ end
 
 local ptrCurrentUnitID = 0x00ee0fc8
 
+local pythonDLL
+
+local function initializePython(dllPath)
+  local dllPath = dllPath
+  if dllPath == nil or dllPath:len() == 0 then
+    local username = os.getenv("USERNAME")
+    dllPath = "C:\\Users\\" .. username .. "\\AppData\\Local\\Programs\\Python\\Python38-32\\python38.dll"
+  end
+
+  pythonDLL = ucp.internal.loadLibraryA(dllPath)
+  local init = core.exposeCode(ucp.internal.getProcAddress(pythonDLL, "Py_Initialize"), 0, 0)
+  init()
+end
+
+local function executePythonFile(filePath)
+  if filePath == nil or filePath:len() == 0 then
+    log(WARNING, "No python file set")
+    return
+  end
+
+  local runSimpleFileAddr = ucp.internal.getProcAddress(pythonDLL, "PyRun_SimpleFile")
+  local runSimpleFile = core.exposeCode(runSimpleFileAddr, 2, 0)
+  local filePointer = io.openFilePointer(filePath, 'rb')
+  local filePathString = ucp.internal.registerString(filePath:match("([^\\]*)[.]py$") or filePath)
+
+  return runSimpleFile(filePointer, filePathString)
+end
 
 return {
-  enable = function(self)
+  enable = function(self, config)
+
+    if config.enabled ~= true then return end
+
+    initializePython(config.pythonDLLPath)
+
+    executePythonFile(config.pythonFilePath)
+
     core.detourCode(function(registers)
       local unitID = core.readInteger(ptrCurrentUnitID)
       local playerID = core.readSmallInteger(0x013885e2 + (0x490 * unitID))
