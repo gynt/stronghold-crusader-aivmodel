@@ -66,34 +66,6 @@ local function executePythonFile(filePath)
   return runSimpleFile(filePointer, filePathString)
 end
 
-local function storeCallbackAddresses() 
-
-  local py_AddModule = core.exposeCode(ucp.internal.getProcAddress(pythonDLL, "PyImport_AddModule"), 1, 0)
-  local py_main = py_AddModule(ucp.internal.registerString("__main__"))
-  if py_main == 0 then log(ERROR, "__main__ == NULL") end
-  local py_GetAttrString = core.exposeCode(ucp.internal.getProcAddress(pythonDLL, "PyObject_GetAttrString"), 2, 0)
-  local py_aivmodel = py_GetAttrString(py_main, ucp.internal.registerString("aivmodel"))  
-  if py_aivmodel == 0 then log(ERROR, "aivmodel == NULL") end
-  local py_addr_onLordKilled = py_GetAttrString(py_aivmodel, ucp.internal.registerString("addr_onLordKilled"))
-  if py_addr_onLordKilled == 0 then log(ERROR, "addr_onLordKilled == NULL") end
-  local py_PyLong = core.exposeCode(ucp.internal.getProcAddress(pythonDLL, "PyLong_AsLong"), 1, 0)
-  local addr_onLordKilled = py_PyLong(py_addr_onLordKilled)
-  if addr_onLordKilled == 0 then log(ERROR, "addr_onLordKilled == 0") end
-
-  onLordKilled = core.exposeCode(addr_onLordKilled, 1, 2) -- stdcall, WINFUNCTYPE
-  
-  return addr_onLordKilled
-end
-
-local function setLuaRegisterCallbackAddress() 
-  local py_PyLong_FromLong = core.exposeCode(ucp.internal.getProcAddress(pythonDLL, "PyLong_FromLong"), 1, 0)
-  local py_long = py_PyLong_FromLong(registerCallbackLocation)
-  local py_AddModule = core.exposeCode(ucp.internal.getProcAddress(pythonDLL, "PyImport_AddModule"), 1, 0)
-  local py_main = py_AddModule(ucp.internal.registerString("__main__"))
-  if py_main == 0 then log(ERROR, "__main__ == NULL") end
-  local py_SetAttrString = core.exposeCode(ucp.internal.getProcAddress(pythonDLL, "PyObject_SetAttrString"), 3, 0)
-  return py_SetAttrString(py_main, ucp.internal.registerString("_LUA_REGISTER_CALLBACK_ADDRESS"), py_long)
-end
 
 return {
   enable = function(self, config)
@@ -164,3 +136,33 @@ except Exception as e:
 
   disable = function(self) end,
 }
+
+
+-- local function storeCallbackAddresses() 
+
+--   local py_AddModule = core.exposeCode(ucp.internal.getProcAddress(pythonDLL, "PyImport_AddModule"), 1, 0)
+--   local py_main = py_AddModule(ucp.internal.registerString("__main__"))
+--   if py_main == 0 then log(ERROR, "__main__ == NULL") end
+--   local py_GetAttrString = core.exposeCode(ucp.internal.getProcAddress(pythonDLL, "PyObject_GetAttrString"), 2, 0)
+--   local py_aivmodel = py_GetAttrString(py_main, ucp.internal.registerString("aivmodel"))  
+--   if py_aivmodel == 0 then log(ERROR, "aivmodel == NULL") end
+--   local py_addr_onLordKilled = py_GetAttrString(py_aivmodel, ucp.internal.registerString("addr_onLordKilled"))
+--   if py_addr_onLordKilled == 0 then log(ERROR, "addr_onLordKilled == NULL") end
+--   local py_PyLong = core.exposeCode(ucp.internal.getProcAddress(pythonDLL, "PyLong_AsLong"), 1, 0)
+--   local addr_onLordKilled = py_PyLong(py_addr_onLordKilled)
+--   if addr_onLordKilled == 0 then log(ERROR, "addr_onLordKilled == 0") end
+
+--   onLordKilled = core.exposeCode(addr_onLordKilled, 1, 2) -- stdcall, WINFUNCTYPE
+  
+--   return addr_onLordKilled
+-- end
+
+-- local function setLuaRegisterCallbackAddress() 
+--   local py_PyLong_FromLong = core.exposeCode(ucp.internal.getProcAddress(pythonDLL, "PyLong_FromLong"), 1, 0)
+--   local py_long = py_PyLong_FromLong(registerCallbackLocation)
+--   local py_AddModule = core.exposeCode(ucp.internal.getProcAddress(pythonDLL, "PyImport_AddModule"), 1, 0)
+--   local py_main = py_AddModule(ucp.internal.registerString("__main__"))
+--   if py_main == 0 then log(ERROR, "__main__ == NULL") end
+--   local py_SetAttrString = core.exposeCode(ucp.internal.getProcAddress(pythonDLL, "PyObject_SetAttrString"), 3, 0)
+--   return py_SetAttrString(py_main, ucp.internal.registerString("_LUA_REGISTER_CALLBACK_ADDRESS"), py_long)
+-- end
