@@ -14,4 +14,4 @@ class Handler(object):
     """
       Implement your logic here, return True to restart the game, return False to let the game continue to run
     """
-    pass
+    return False

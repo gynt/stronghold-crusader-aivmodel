@@ -2,6 +2,4 @@
   "editor.detectIndentation": false,
   "editor.tabSize": 2,
   "editor.autoIndent": "full",
-  "editor.formatOnSave": false,
-  "eslint.format.enable": false
 }
