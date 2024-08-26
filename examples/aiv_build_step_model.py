@@ -11,6 +11,8 @@ import numpy, math
 
 import pathlib
 
+INTERACTIVE = True
+
 class AIVInterface(AIV):
   def __init__(self, path, iteration = None):
     super().__init__()
@@ -29,7 +31,7 @@ class AIVInterface(AIV):
     self.to_file(self.path)
   def store(self):
     p = pathlib.Path(self.path + "." + str(self.iteration))
-    if p.exists():
+    if p.exists() and INTERACTIVE:
       answer = win32api.MessageBox(None, f"Iteration {self.iteration} already exists, overwrite?", "Duplicate iteration", win32con.MB_OKCANCEL)
       if not answer:
         return
@@ -72,6 +74,11 @@ class AIVInterface(AIV):
     steps_matrix[step1x, step1y] = step2
     steps_matrix[step2x, step2y] = step1
     self.directory[2008].set_data(steps_matrix.tobytes())
+    if INTERACTIVE:
+      win32api.MessageBox(None, f"Original step {step1} is swapped with step: {step2}", "Test", win32con.MB_OK)
+  def swap_multiple_steps(self, n, learning_rate = 10, learning_rate_unit = "percentage"):
+    for _ in range(n):
+      self.swap_steps(learning_rate=learning_rate, learning_rate_unit=learning_rate_unit)
   def relocate_step(self, learning_rate = 10, learning_rate_unit = "percentage"):
     """
       Moves a step at a new location
@@ -121,7 +128,7 @@ class AIVBuildStepSolver(Handler):
     try:
       if playerID == 0:
         return win32api.MessageBox(None, f"Test!", "Test", win32con.MB_OKCANCEL)
-      win = playerID == 1 # Assuming 1 vs 1
+      win = playerID == 2 # Assuming 1 vs 1 and ai player was placed in slot 1
       iteration = saladin.iteration
       if iteration not in self.losses:
         self.losses[iteration] = 0
@@ -134,14 +141,15 @@ class AIVBuildStepSolver(Handler):
         self.losses[iteration] += 1
       
       if iteration < 1:
-        win32api.MessageBox(None, f"Next iteration!", "Choice:", win32con.MB_OKCANCEL)
+        if INTERACTIVE:
+          win32api.MessageBox(None, f"Next iteration!", "Choice:", win32con.MB_OKCANCEL)
         saladin.next_iteration()
         return True
       
       previous = iteration - 1
       if (self.wins[previous] - self.losses[previous]) > (self.wins[iteration] - self.losses[iteration]):
         if self.retries == 0:
-          if win32api.MessageBox(None, f"Previous iteration!", "Choice:", win32con.MB_OKCANCEL):
+          if INTERACTIVE and win32api.MessageBox(None, f"Previous iteration!", "Choice:", win32con.MB_OKCANCEL):
             saladin.previous_iteration()
             self.retries = 3 # For next time we lose
           else:
@@ -150,7 +158,7 @@ class AIVBuildStepSolver(Handler):
           self.retries -= 1 # Keep the current aiv once more
       else:
         # Keep developing this aiv
-        if win32api.MessageBox(None, f"Next iteration!", "Choice:", win32con.MB_OKCANCEL):
+        if INTERACTIVE and win32api.MessageBox(None, f"Next iteration!", "Choice:", win32con.MB_OKCANCEL):
           saladin.next_iteration()
 
 
